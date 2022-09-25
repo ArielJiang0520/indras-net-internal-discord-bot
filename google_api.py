@@ -1,12 +1,16 @@
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
+from dotenv import load_dotenv
+import os
+import json
 
-# If modifying these scopes, delete the file token.json.
+load_dotenv()
+
 SCOPES = ['https://www.googleapis.com/auth/drive']
-SERVICE_ACCOUNT_FILE = 'service.json'
+SERVICE_ACCOUNT_FILE = json.loads(os.getenv('SERVICE_JSON'))
 
-creds = service_account.Credentials.from_service_account_file(
+creds = service_account.Credentials.from_service_account_info(
         SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 
 def _read_paragraph_element(element):

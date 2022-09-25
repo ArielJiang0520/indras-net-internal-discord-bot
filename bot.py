@@ -27,18 +27,6 @@ CONTENT_FOLDER = os.getenv('CONTENT_FOLDER_ID')
 
 CLICKUP_TOKEN = os.getenv('CLICKUP_TOKEN')
 
-@tasks.loop(hours=24)
-async def post_daily_status(bot, id):
-    channel = bot.get_channel(id)
-    now = datetime.now(timezone.utc)
-    msg = f'⏰⏰⏰Today is UTC Time {now.date()}⏰⏰⏰\n\n⬇️⬇️⬇️Here are our ongoing tasks⬇️⬇️⬇️\n'
-    tasks = bot.clickup.get_tasks_by_date(now)
-    msg += '\n'.join(tasks)
-    msg += f'\n\n⬇️⬇️⬇️Here are our future tasks⬇️⬇️⬇️\n'
-    future_tasks = bot.clickup.get_tasks_in_future(now)
-    msg += '\n'.join(future_tasks)
-    await channel.send('Your message')
-
 class client(discord.Client):
     def __init__(self):
         super().__init__(intents = discord.Intents.all())
@@ -56,6 +44,20 @@ class client(discord.Client):
 
 bot = client()
 tree = app_commands.CommandTree(bot)
+
+@tasks.loop(hours=24)
+async def post_daily_status(bot, id):
+    channel = bot.get_channel(id)
+
+    now = datetime.now(timezone.utc)
+    msg = f'⏰⏰⏰Today is UTC Time {now.date()}⏰⏰⏰\n\n⬇️⬇️⬇️Here are our ongoing tasks⬇️⬇️⬇️\n'
+    tasks = bot.clickup.get_tasks_by_date(now)
+    msg += '\n'.join(tasks)
+    msg += f'\n\n⬇️⬇️⬇️Here are our future tasks⬇️⬇️⬇️\n'
+    future_tasks = bot.clickup.get_tasks_in_future(now)
+    msg += '\n'.join(future_tasks)
+    
+    await channel.send(msg)
 
 @tree.command(
     guild = discord.Object(id=GUILD), 
