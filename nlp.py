@@ -1,9 +1,7 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-import google_api
-
-def search_query(raw_text, query):
+def search_query(docs, query):
     """
     vectorizer: TfIdfVectorizer model
     docs_tfidf: tfidf vectors for all docs
@@ -12,7 +10,6 @@ def search_query(raw_text, query):
     return: cosine similarity between query and all docs
     """
     vectorizer = TfidfVectorizer()
-    docs = google_api.parse_doc(raw_text)
     docs_tfidf = vectorizer.fit_transform(docs)
     query_tfidf = vectorizer.transform([query])
 
@@ -49,7 +46,7 @@ if __name__ == '__main__':
     import os
     QUESTION_DOC = os.getenv('QUESTION_DOC_ID')
 
-    question_doc = google_api.get_raw_text_from_doc(QUESTION_DOC)
-    all_docs = google_api.parse_doc(question_doc)
+    # question_doc = google_api.get_raw_text_from_doc(QUESTION_DOC)
+    # all_docs = google_api.parse_doc(question_doc)
 
-    search_query(all_docs, 'node')
+    # search_query(all_docs, 'node')
