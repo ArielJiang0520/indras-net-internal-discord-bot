@@ -141,8 +141,9 @@ def _get_daily_msg():
     description='check the schedule for today'
 )
 async def post_schedule_today(interaction: discord.Interaction):
+    await interaction.response.defer()
     msg = _get_daily_msg()
-    await interaction.response.send_message(msg) 
+    await interaction.followup.send(msg) 
 
 @tree.command(
     guild = discord.Object(id=GUILD), 
@@ -150,11 +151,13 @@ async def post_schedule_today(interaction: discord.Interaction):
     description='figure out someone\'s current and future schedule'
 )
 async def post_schedule_person(interaction: discord.Interaction, who: str):
+    await interaction.response.defer()
+
     msg = f'🪄You searched for **{who.capitalize()}**🪄\n\n⬇️⬇️⬇️Here are the current and future tasks for them\n'
     tasks = bot.clickup.get_tasks_by_person(who.lower())
     msg += '\n'.join(tasks)
     
-    await interaction.response.send_message(msg) 
+    await interaction.followup.send(msg) 
 
 @tree.command(
     guild = discord.Object(id=GUILD),
