@@ -10,8 +10,9 @@ import google_api
 import nlp
 import clickup_api
 from datetime import datetime, timezone
-
+import helper
 import asyncio
+import json
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -24,7 +25,7 @@ QUESTION_DOC = os.getenv('QUESTION_DOC_ID')
 LINKS_DOC = os.getenv('LINKS_DOC_ID')
 BOOKSHELF_DOC = os.getenv('BOOKSHELF_DOC_ID')
 CONTENT_FOLDER = os.getenv('CONTENT_FOLDER_ID')
-
+TIMEZONES = json.loads(os.getenv('TIMEZONES'))
 CLICKUP_TOKEN = os.getenv('CLICKUP_TOKEN')
 
 class client(discord.Client):
@@ -32,11 +33,11 @@ class client(discord.Client):
         super().__init__(intents = discord.Intents.all())
         self.synced = False # the bot doesn't sync commands more than once
         self.clickup = clickup_api.MyClickUp(CLICKUP_TOKEN)
-        self.mangas = [line.split(',') for line in google_api.get_raw_text_from_doc(BOOKSHELF_DOC).split('\n') if line != '']
+        self.mangas = [line.split(',') for line in google_api.get_raw_text_from_doc(BOOKSHELF_DOC).split('\n') if line != ''][:25]
 
     async def on_ready(self):
         await self.wait_until_ready()
-        post_daily_status.start(self, GENERAL_CHANNEL)
+        # post_daily_status.cancel(self, GENERAL_CHANNEL)
         if not self.synced: # check if slash commands have been synced 
             await tree.sync(guild = discord.Object(id=GUILD))
             self.synced = True
@@ -44,20 +45,6 @@ class client(discord.Client):
 
 bot = client()
 tree = app_commands.CommandTree(bot)
-
-@tasks.loop(hours=24)
-async def post_daily_status(bot, id):
-    channel = bot.get_channel(id)
-
-    now = datetime.now(timezone.utc)
-    msg = f'⏰⏰⏰Today is UTC Time {now.date()}⏰⏰⏰\n\n⬇️⬇️⬇️Here are our ongoing tasks⬇️⬇️⬇️\n'
-    tasks = bot.clickup.get_tasks_by_date(now)
-    msg += '\n'.join(tasks)
-    msg += f'\n\n⬇️⬇️⬇️Here are our future tasks⬇️⬇️⬇️\n'
-    future_tasks = bot.clickup.get_tasks_in_future(now)
-    msg += '\n'.join(future_tasks)
-    
-    await channel.send(msg)
 
 @tree.command(
     guild = discord.Object(id=GUILD), 
@@ -85,6 +72,29 @@ async def post_puppy(interaction: discord.Interaction):
 
 @tree.command(
     guild = discord.Object(id=GUILD), 
+    name = 'time', 
+    description='eliminate timezone confusion!'
+)
+async def post_time(interaction: discord.Interaction, person: str):
+    req_time = datetime.now(timezone.utc)
+
+    msg = ''
+    if person != 'all':
+        person_timezone = TIMEZONES[person] if person in TIMEZONES else 'UTC'
+        res = helper.get_time_in_timezone(req_time, person_timezone).strftime("%m/%d/%Y, %H:%M")
+        msg += f'''
+{person.capitalize()}'s current time is {res}'''
+    else:
+        for p in TIMEZONES:
+            person_timezone = TIMEZONES[p]
+            res = helper.get_time_in_timezone(req_time, person_timezone).strftime("%m/%d/%Y, %H:%M")
+            msg += f'''
+{p.capitalize()}'s current time is {res}\n'''
+
+    await interaction.response.send_message(msg) 
+
+@tree.command(
+    guild = discord.Object(id=GUILD), 
     name = 'show-links', 
     description='show all the essential links'
 )
@@ -109,20 +119,29 @@ async def iterate_content(interaction: discord.Interaction):
     
     await interaction.followup.send(msg) 
 
+def _get_daily_msg():
+    now = datetime.now(timezone.utc)
+    msg = f'⏰Today is UTC Time {now.date()}\n\n⬇️⬇️⬇️Here are our ongoing tasks\n'
+    tasks = bot.clickup.get_tasks_by_date(now)
+    msg += '\n'.join(tasks)
+    msg += f'\n\n⬇️⬇️⬇️Here are our future tasks\n'
+    future_tasks = bot.clickup.get_tasks_in_future(now)
+    msg += '\n'.join(future_tasks)
+    return msg
+
+# @tasks.loop(hours=24)
+# async def post_daily_status(bot, id):
+#     channel = bot.get_channel(id)
+#     msg = _get_daily_msg()
+#     await channel.send(msg)
+
 @tree.command(
     guild = discord.Object(id=GUILD), 
     name = 'schedule-today', 
     description='check the schedule for today'
 )
 async def post_schedule_today(interaction: discord.Interaction):
-    now = datetime.now(timezone.utc)
-    msg = f'⏰⏰⏰Today is UTC Time {now.date()}⏰⏰⏰\n\n⬇️⬇️⬇️Here are our ongoing tasks⬇️⬇️⬇️\n'
-    tasks = bot.clickup.get_tasks_by_date(now)
-    msg += '\n'.join(tasks)
-    msg += f'\n\n⬇️⬇️⬇️Here are our future tasks⬇️⬇️⬇️\n'
-    future_tasks = bot.clickup.get_tasks_in_future(now)
-    msg += '\n'.join(future_tasks)
-    
+    msg = _get_daily_msg()
     await interaction.response.send_message(msg) 
 
 @tree.command(
@@ -131,7 +150,7 @@ async def post_schedule_today(interaction: discord.Interaction):
     description='figure out someone\'s current and future schedule'
 )
 async def post_schedule_person(interaction: discord.Interaction, who: str):
-    msg = f'🪄🪄🪄You searched for **{who.capitalize()}**🪄🪄🪄\n\n⬇️⬇️⬇️Here are the current and future tasks for them⬇️⬇️⬇️\n'
+    msg = f'🪄You searched for **{who.capitalize()}**🪄\n\n⬇️⬇️⬇️Here are the current and future tasks for them\n'
     tasks = bot.clickup.get_tasks_by_person(who.lower())
     msg += '\n'.join(tasks)
     
@@ -183,4 +202,6 @@ Click Here ➡️➡️➡️ {manga_dict[choices.value].format(chapter=chapter)
 '''
     await interaction.response.send_message(msg)
 
-asyncio.run(bot.start(TOKEN))
+if __name__ == '__main__':
+    bot.run(TOKEN)
+    
