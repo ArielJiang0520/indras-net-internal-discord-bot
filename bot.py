@@ -27,6 +27,7 @@ BOOKSHELF_DOC = os.getenv('BOOKSHELF_DOC_ID')
 CONTENT_FOLDER = os.getenv('CONTENT_FOLDER_ID')
 TIMEZONES = json.loads(os.getenv('TIMEZONES'))
 CLICKUP_TOKEN = os.getenv('CLICKUP_TOKEN')
+USER_IDS = json.loads(os.getenv('USER_IDS'))
 
 class client(discord.Client):
     def __init__(self):
@@ -121,7 +122,7 @@ async def iterate_content(interaction: discord.Interaction):
 
 def _get_daily_msg():
     now = datetime.now(timezone.utc)
-    msg = f'⏰Today is UTC Time {now.date()}\n\n⬇️⬇️⬇️Here are our ongoing tasks\n'
+    msg = f'⏰Hey @here, today is UTC Time {now.date()}\n\n⬇️⬇️⬇️Here are our ongoing tasks\n'
     tasks = bot.clickup.get_tasks_by_date(now)
     msg += '\n'.join(tasks)
     msg += f'\n\n⬇️⬇️⬇️Here are our future tasks\n'
@@ -153,10 +154,13 @@ async def post_schedule_today(interaction: discord.Interaction):
 async def post_schedule_person(interaction: discord.Interaction, who: str):
     await interaction.response.defer()
 
-    msg = f'🪄You searched for **{who.capitalize()}**🪄\n\n⬇️⬇️⬇️Here are the current and future tasks for them\n'
-    tasks = bot.clickup.get_tasks_by_person(who.lower())
-    msg += '\n'.join(tasks)
-    
+    if who.lower() not in USER_IDS:
+        msg = f'Sorry, the user you are looking for, @{who}, is not in our discord channel!'
+    else:
+        msg = f'🪄You searched for <@{USER_IDS[who.lower()]}>🪄\n\n⬇️⬇️⬇️Here are the current and future tasks for them\n'
+        tasks = bot.clickup.get_tasks_by_person(who.lower())
+        msg += '\n'.join(tasks)
+        
     await interaction.followup.send(msg) 
 
 @tree.command(
